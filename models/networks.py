@@ -21,7 +21,7 @@ class BaseNetwork(nn.Module):
     def load_checkpoint(self):
         self.load_state_dict(T.load(self.checkpoint_path))
         
-    def figure_out_device():
+    def figure_out_device(self):
         self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         
@@ -39,6 +39,10 @@ class CriticNetwork(BaseNetwork):
         self.fc1_dims = fc1_dims
         self.fc2_dims = fc2_dims
 
+        self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4, padding=0),
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
+        self.flat = nn.Flatten(start_dim=0),
         self.fc1 = nn.Linear(self.input_dims[0] + self.n_actions, self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.q = nn.Linear(self.fc2_dims, 1)

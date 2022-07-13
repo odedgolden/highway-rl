@@ -21,7 +21,7 @@ class BaseNetwork(nn.Module):
     def load_checkpoint(self):
         self.load_state_dict(T.load(self.checkpoint_path))
         
-    def figure_out_device():
+    def figure_out_device(self):
         self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         

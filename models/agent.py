@@ -61,7 +61,7 @@ class Agent():
         if tau is None:
             tau = self.tau
             
-        target_value_params = self.target_value.named_paramters()
+        target_value_params = self.target_value.named_parameters()
         value_params = self.value.named_parameters()
         
         target_value_state_dict = dict(target_value_params)
