@@ -116,7 +116,6 @@ class ActorNetwork(BaseNetwork):
 
 
     def forward(self, state):
-        print(f'T.sum(state): {T.sum(state)}')
         prob = super().forward(state)
         prob = self.fc1(prob)
         prob = F.relu(prob)
@@ -134,15 +133,15 @@ class ActorNetwork(BaseNetwork):
     
     def sample_normal(self, state, reparameterize=True):
         mu, sigma = self.forward(state)
-        probaabilities = Normal(mu, sigma)
+        probabilities = Normal(mu, sigma)
         
         if reparameterize:
-            actions = probaabilities.rsample()
+            actions = probabilities.rsample()
         else:
-            actions = probaabilities.sample()
+            actions = probabilities.sample()
             
         action = T.tanh(actions)*T.tensor(self.max_action).to(self.device)
-        log_probs = probaabilities.log_prob(actions)
+        log_probs = probabilities.log_prob(actions)
         log_probs -= T.log(1-action.pow(2) + self.reparam_noise)
         log_probs = log_probs.sum(-1, keepdim=True)
         

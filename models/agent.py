@@ -90,7 +90,7 @@ class Agent():
     def learn(self):
         if self.memory.memory_counter < self.batch_size:
             return
-        
+        print("\n\nLearning...\n\n")
         state, action, reward, new_state, done = self.memory.sample_buffer(self.batch_size)
         state = T.tensor(state, dtype=T.float).to(self.actor.device)
         action = T.tensor(action, dtype=T.float).to(self.actor.device)
