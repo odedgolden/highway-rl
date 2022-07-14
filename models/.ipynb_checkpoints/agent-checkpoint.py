@@ -31,11 +31,11 @@ class Agent():
                                   name='actor', 
                                   max_action=n_actions-1)
         
-        self.critic_1 = CriticNetwork(lr=beta,
+        self.critic1 = CriticNetwork(lr=beta,
                                       input_dims=input_dims, 
                                       n_actions=n_actions,
                                       name='critic_1')
-        self.critic_2 = CriticNetwork(lr=beta,
+        self.critic2 = CriticNetwork(lr=beta,
                                       input_dims=input_dims,
                                       n_actions=n_actions,
                                       name='critic_2')
@@ -51,11 +51,12 @@ class Agent():
     def choose_action(self, observation):
         state = T.Tensor([observation]).to(self.actor.device)
         actions, _ = self.actor.sample_normal(state, reparameterize=False)
-        
-        return actions.cpu().detach().numpy()[0]
+        actions = actions.cpu().detach().numpy()[0]
+        action = np.argmax(actions)
+        return action
     
     def remember(self, state, action, reward, new_state, done):
-        self.memory.store_transition(self, state, action, reward, new_state, done)
+        self.memory.store_transition(state, action, reward, new_state, done)
     
     def update_network_parameters(self, tau=None):
         if tau is None:

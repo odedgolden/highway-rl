@@ -14,7 +14,11 @@ class BaseNetwork(nn.Module):
         self.checkpoint_dir = chkpt_dir
         self.checkpoint_path  = os.path.join(self.checkpoint_dir, name + '_sac') 
         self.lr = lr
-        
+        self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4, padding=0)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0)
+        self.flat = nn.Flatten(start_dim=0)
+    
     def save_checkpoint(self):
         T.save(self.state_dict(), self.checkpoint_path)
         
@@ -25,8 +29,18 @@ class BaseNetwork(nn.Module):
         self.optimizer = optim.Adam(self.parameters(), lr=self.lr)
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
         
-        self.to(self.device)        
-        
+        self.to(self.device)
+    
+    def forward(self, state):
+        state_value = self.conv1(state)
+        state_value = F.relu(state_value)
+        state_value = self.conv2(state_value)
+        state_value = F.relu(state_value)
+        state_value = self.conv3(state_value)
+        state_value = F.relu(state_value)
+        state_value = self.flat(state_value)
+
+        return state_value
 
 
         
@@ -39,14 +53,17 @@ class CriticNetwork(BaseNetwork):
         self.fc1_dims = fc1_dims
         self.fc2_dims = fc2_dims
 
-        self.fc1 = nn.Linear(self.input_dims[0] + self.n_actions, self.fc1_dims)
+
+        self.fc1 = nn.Linear(64 * 12 * 12 + self.n_actions, self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.q = nn.Linear(self.fc2_dims, 1)
         
         self.figure_out_device()
         
     def forward(self, state, action):
-        action_value = self.fc1(T.cat([state, action], dim=1))
+        state_value = super().forward(state)
+        
+        action_value = self.fc1(T.cat([state_value, action], dim=1))
         action_value = F.relu(action_value)
         action_value = self.fc2(action_value)
         action_value = F.relu(action_value)
@@ -62,13 +79,14 @@ class ValueNetwork(BaseNetwork):
         self.fc1_dims = fc1_dims
         self.fc2_dims = fc2_dims
 
-        self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
+        self.fc1 = nn.Linear(64 * 12 * 12 , self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.v = nn.Linear(self.fc2_dims, 1)
         
         self.figure_out_device()
         
     def forward(self, state):
+        state_value = super().forward(state)
         state_value = self.fc1(state)
         state_value = F.relu(state_value)
         state_value = self.fc2(state)
@@ -89,7 +107,7 @@ class ActorNetwork(BaseNetwork):
         self.max_action = max_action
         self.reparam_noise = 1e-6
         
-        self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
+        self.fc1 = nn.Linear(64 * 12 * 12 , self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.mu = nn.Linear(self.fc2_dims, self.n_actions)
         self.sigma = nn.Linear(self.fc2_dims, self.n_actions)
@@ -98,6 +116,7 @@ class ActorNetwork(BaseNetwork):
 
 
     def forward(self, state):
+        state = super().forward(state)
         prob = self.fc1(state)
         prob = F.relu(prob)
         prob = self.fc2(prob)
@@ -122,6 +141,6 @@ class ActorNetwork(BaseNetwork):
         action = T.tanh(actions)*T.tensor(self.max_action).to(self.device)
         log_probs = probaabilities.log_prob(actions)
         log_probs -= T.log(1-action.pow(2) + self.reparam_noise)
-        log_probs = log_probs.sum(1, keepdim=True)
+        log_probs = log_probs.sum(0, keepdim=True)
         
         return action, log_probs
