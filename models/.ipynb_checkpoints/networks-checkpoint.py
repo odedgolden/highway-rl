@@ -17,7 +17,7 @@ class BaseNetwork(nn.Module):
         self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4, padding=0)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0)
-        self.flat = nn.Flatten(start_dim=0)
+        self.flat = nn.Flatten(start_dim=1)
     
     def save_checkpoint(self):
         T.save(self.state_dict(), self.checkpoint_path)
@@ -87,12 +87,12 @@ class ValueNetwork(BaseNetwork):
         
     def forward(self, state):
         state_value = super().forward(state)
-        state_value = self.fc1(state)
+        state_value = self.fc1(state_value)
         state_value = F.relu(state_value)
-        state_value = self.fc2(state)
+        state_value = self.fc2(state_value)
         state_value = F.relu(state_value)
         
-        v = self.v(action_value)
+        v = self.v(state_value)
         
         return v
     
@@ -116,8 +116,9 @@ class ActorNetwork(BaseNetwork):
 
 
     def forward(self, state):
-        state = super().forward(state)
-        prob = self.fc1(state)
+        print(f'T.sum(state): {T.sum(state)}')
+        prob = super().forward(state)
+        prob = self.fc1(prob)
         prob = F.relu(prob)
         prob = self.fc2(prob)
         prob = F.relu(prob)
@@ -126,6 +127,8 @@ class ActorNetwork(BaseNetwork):
         sigma = self.sigma(prob)
         
         sigma = T.clamp(sigma, min=self.reparam_noise, max=1)
+#         print(f'mu: {mu}')
+#         print(f'sigma: {sigma}')
         
         return mu, sigma
     
@@ -141,6 +144,6 @@ class ActorNetwork(BaseNetwork):
         action = T.tanh(actions)*T.tensor(self.max_action).to(self.device)
         log_probs = probaabilities.log_prob(actions)
         log_probs -= T.log(1-action.pow(2) + self.reparam_noise)
-        log_probs = log_probs.sum(0, keepdim=True)
+        log_probs = log_probs.sum(-1, keepdim=True)
         
         return action, log_probs

@@ -51,11 +51,12 @@ class Agent():
     def choose_action(self, observation):
         state = T.Tensor([observation]).to(self.actor.device)
         actions, _ = self.actor.sample_normal(state, reparameterize=False)
-        
-        return actions.cpu().detach().numpy()[0]
+        actions = actions.cpu().detach().numpy()[0]
+        action = np.argmax(actions)
+        return action
     
     def remember(self, state, action, reward, new_state, done):
-        self.memory.store_transition(self, state, action, reward, new_state, done)
+        self.memory.store_transition(state, action, reward, new_state, done)
     
     def update_network_parameters(self, tau=None):
         if tau is None:
@@ -76,15 +77,15 @@ class Agent():
         self.actor.save_checkpoint()
         self.value.save_checkpoint()
         self.target_value.save_checkpoint()
-        self.critic1.save_checkpoint()
-        self.critic2.save_checkpoint()
+        self.critic_1.save_checkpoint()
+        self.critic_2.save_checkpoint()
         
     def load_models(self):
         self.actor.load_checkpoint()
         self.value.load_checkpoint()
         self.target_value.load_checkpoint()
-        self.critic1.load_checkpoint()
-        self.critic2.load_checkpoint()
+        self.critic_1.load_checkpoint()
+        self.critic_2.load_checkpoint()
         
     def learn(self):
         if self.memory.memory_counter < self.batch_size:
@@ -109,12 +110,14 @@ class Agent():
         critic_value = critic_value.view(-1)
         
         self.value.optimizer.zero_grad()
+        print(f'critic_value.shape: {critic_value.shape}')
+        print(f'log_probs.shape: {log_probs.shape}')
         value_target = critic_value - log_probs
         value_loss = 0.5*F.mse_loss(value, value_target)
         value_loss.backward(retain_graph=True)
         self.value.optimizer.step()
         
-        actions, log_probs = self,actor.sample_normal(state, reparameterize=True)
+        actions, log_probs = self.actor.sample_normal(state, reparameterize=True)
         log_probs = log_probs.view(-1)
         q1_new_policy = self.critic_1.forward(state, actions)
         q2_new_policy = self.critic_2.forward(state, actions)
