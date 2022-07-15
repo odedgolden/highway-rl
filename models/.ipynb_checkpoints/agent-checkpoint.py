@@ -21,6 +21,7 @@ class Agent():
                  reward_scale=2):
         self.gamma = gamma
         self.tau = tau
+        # print(input_dims)
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
         self.batch_size = batch_size
         self.n_actions = n_actions
@@ -58,7 +59,7 @@ class Agent():
     def remember(self, state, action, reward, new_state, done):
         self.memory.store_transition(state, action, reward, new_state, done)
     
-    def update_network_parameters(self, tau=None):
+    def update_network_parameters(self, tau=None, learning=False):
         if tau is None:
             tau = self.tau
             
@@ -67,6 +68,11 @@ class Agent():
         
         target_value_state_dict = dict(target_value_params)
         value_state_dict = dict(value_params)
+        
+        # if learning:
+        #     print(f'\ntarget_value_state_dict: {target_value_state_dict}\n')
+        #     print(f'\value_state_dict: {value_state_dict}\n')
+        #     print(f'\ntau: {tau}\n')
         
         for name in value_state_dict:
             value_state_dict[name] = tau*value_state_dict[name].clone() + (1-tau)*target_value_state_dict[name].clone()
@@ -90,7 +96,7 @@ class Agent():
     def learn(self):
         if self.memory.memory_counter < self.batch_size:
             return
-        print("\n\nLearning...\n\n")
+        # print("\n\nLearning...\n\n")
         state, action, reward, new_state, done = self.memory.sample_buffer(self.batch_size)
         state = T.tensor(state, dtype=T.float).to(self.actor.device)
         action = T.tensor(action, dtype=T.float).to(self.actor.device)
@@ -102,6 +108,7 @@ class Agent():
         target_value = self.target_value(new_state).view(-1)
         target_value[done] = 0.0
         
+        # print("\nself.actor.sample_normal(state, reparameterize=False)\n")
         actions, log_probs = self.actor.sample_normal(state, reparameterize=False)
         log_probs = log_probs.view(-1)
         q1_new_policy = self.critic_1.forward(state, actions)
@@ -110,13 +117,24 @@ class Agent():
         critic_value = critic_value.view(-1)
         
         self.value.optimizer.zero_grad()
-        print(f'critic_value.shape: {critic_value.shape}')
-        print(f'log_probs.shape: {log_probs.shape}')
+        # print(f'critic_value.shape: {critic_value.shape}')
+        # print(f'log_probs.shape: {log_probs.shape}')
+        # print(f'\n T.isnan(critic_value).any(): {T.isnan(critic_value).any()}\n')
+        # print(f'\n T.isnan(log_probs).any(): {T.isnan(log_probs).any()}\n')        
         value_target = critic_value - log_probs
+        
+        # sanity_check = (value == 0).any() or (value_target == 0).any()
+        # sanity_check = T.isnan(value).any() or T.isnan(value_target).any()        
+        # print(f'\n sanity_check: {sanity_check}\n')
+        # print(f'\n T.isnan(value).any(): {T.isnan(value).any()}\n')
+        # print(f'\n T.isnan(value_target).any(): {T.isnan(value_target).any()}\n')
+        
         value_loss = 0.5*F.mse_loss(value, value_target)
         value_loss.backward(retain_graph=True)
         self.value.optimizer.step()
+        # print("\nDone 1\n")
         
+        # print("\nself.actor.sample_normal(state, reparameterize=True)\n")        
         actions, log_probs = self.actor.sample_normal(state, reparameterize=True)
         log_probs = log_probs.view(-1)
         q1_new_policy = self.critic_1.forward(state, actions)
@@ -124,6 +142,7 @@ class Agent():
         critic_value = T.min(q1_new_policy, q2_new_policy)
         critic_value = critic_value.view(-1)        
         
+        # print("\nDone 2\n")
         actor_loss = log_probs - critic_value
         actor_loss = T.mean(actor_loss)
         self.actor.optimizer.zero_grad()
@@ -140,9 +159,13 @@ class Agent():
         critic_2_loss = 0.5*F.mse_loss(q2_old_policy, q_hat)
         
         critic_loss = critic_1_loss + critic_2_loss
+        
+        # print("\nGoing backward...\n")
         critic_loss.backward()
-        
+
+        # print("\nOptimizer 1 step...\n")
         self.critic_1.optimizer.step()
+        # print("\nOptimizer 2 step...\n")        
         self.critic_2.optimizer.step()
-        
-        self.update_network_parameters()
+        # print("\nupdate_network_parameters...\n")        
+        self.update_network_parameters(learning=True)
