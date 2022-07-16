@@ -3,7 +3,10 @@ import torch as T
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim
-from torch.distributions.normal import Normal
+# from torch.distributions.normal import Normal
+from torch.distributions.categorical import Categorical
+
+
 import numpy as np
 
 
@@ -116,57 +119,35 @@ class ActorNetwork(BaseNetwork):
 
 
     def forward(self, state):
-        # print(f'state maximum: {T.max(state)}')
-        # print(f'state min: {T.min(state)}')
-        # prob = super().forward(state)
-        # print(f'T.isnan(state).any(): {T.isnan(state).any()}')
-        state_value = self.conv1(state)
-        # print(f'state_value maximum: {T.max(state_value)}')        
-        state_value = F.relu(state_value)
-        state_value = self.conv2(state_value)
-        state_value = F.relu(state_value)
-        state_value = self.conv3(state_value)
-        state_value = F.relu(state_value)
-        
-        state_value = self.flat(state_value)
-        # print(f'prob: {prob}')
+        prob = super().forward(state)
         prob = self.fc1(state_value)
         prob = F.relu(prob)
         prob = self.fc2(prob)
         prob = F.relu(prob)
-        
-        mu = self.mu(prob)
-        sigma = self.sigma(prob)
-        
-        sigma = T.clamp(sigma, min=self.reparam_noise, max=1)
-#         print(f'mu: {mu}')
-#         print(f'sigma: {sigma}')
-        
-        return mu, sigma
+
+        return prob
     
-    def sample_normal(self, state, reparameterize=True):
-        # print(f'state: {state}')
-        mu, sigma = self.forward(state)
-        probabilities = Normal(mu, sigma)
+    def sample_categorical(self, state, reparameterize=True):
+
+        probabilities = self.forward(state)
+        
+        # Since we are dealing with discrete actions:
+        distribution = Categorical(probabilities)
         
         if reparameterize:
-            actions = probabilities.rsample()
+            # PyTorch reparameterization "trick":
+            # https://pytorch.org/docs/stable/distributions.html
+            action = distribution.rsample()
         else:
-            actions = probabilities.sample()
-            
-        # action = T.tanh(actions)*T.tensor(self.max_action).to(self.device)
-        action = T.tanh(actions)
+            action = distribution.sample()
 
-        # print(f'\n T.isnan(action).any(): {T.isnan(action).any()}\n')        
-        log_probs = probabilities.log_prob(actions)
-        # print(f'\n T.isnan(log_probs).any()  1: {T.isnan(log_probs).any()}\n')        
+        log_probs = distribution.log_prob(action)
+
+        # 
         
-        # print(f'Sanity check before log, I messed up, right? {(1-action.pow(2) + self.reparam_noise < 0).any()}\n')        
-
         log_probs -= T.log(1-action.pow(2) + self.reparam_noise)
-        # print(f'\n T.isnan(log_probs).any()  2: {T.isnan(log_probs).any()}\n')        
-        
         log_probs = log_probs.sum(1, keepdim=True)
-        # print(f'\n T.isnan(log_probs).any()  3: {T.isnan(log_probs).any()}\n')        
+        
+        #
         
         return action, log_probs

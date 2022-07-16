@@ -43,15 +43,15 @@ class Agent():
         self.value = ValueNetwork(lr=beta, 
                                   input_dims=input_dims, 
                                   name='value')
-        self.target_value = ValueNetwork(lr=beta, 
+        self.new_state_value = ValueNetwork(lr=beta, 
                                          input_dims=input_dims, 
-                                         name='target_value')
+                                         name='new_state_value')
         self.scale = reward_scale
         self.update_network_parameters(tau=1)
         
     def choose_action(self, observation):
         state = T.Tensor([observation]).to(self.actor.device)
-        actions, _ = self.actor.sample_normal(state, reparameterize=False)
+        actions, _ = self.actor.sample_categorical(state, reparameterize=False)
         actions = actions.cpu().detach().numpy()[0]
         action = np.argmax(actions)
         return action
@@ -63,33 +63,33 @@ class Agent():
         if tau is None:
             tau = self.tau
             
-        target_value_params = self.target_value.named_parameters()
+        new_state_value_params = self.new_state_value.named_parameters()
         value_params = self.value.named_parameters()
         
-        target_value_state_dict = dict(target_value_params)
+        new_state_value_state_dict = dict(new_state_value_params)
         value_state_dict = dict(value_params)
         
         # if learning:
-        #     print(f'\ntarget_value_state_dict: {target_value_state_dict}\n')
+        #     print(f'\nnew_state_value_state_dict: {new_state_value_state_dict}\n')
         #     print(f'\value_state_dict: {value_state_dict}\n')
         #     print(f'\ntau: {tau}\n')
         
         for name in value_state_dict:
-            value_state_dict[name] = tau*value_state_dict[name].clone() + (1-tau)*target_value_state_dict[name].clone()
+            value_state_dict[name] = tau*value_state_dict[name].clone() + (1-tau)*new_state_value_state_dict[name].clone()
             
-        self.target_value.load_state_dict(value_state_dict)
+        self.new_state_value.load_state_dict(value_state_dict)
         
     def save_models(self):
         self.actor.save_checkpoint()
         self.value.save_checkpoint()
-        self.target_value.save_checkpoint()
+        self.new_state_value.save_checkpoint()
         self.critic_1.save_checkpoint()
         self.critic_2.save_checkpoint()
         
     def load_models(self):
         self.actor.load_checkpoint()
         self.value.load_checkpoint()
-        self.target_value.load_checkpoint()
+        self.new_state_value.load_checkpoint()
         self.critic_1.load_checkpoint()
         self.critic_2.load_checkpoint()
         
@@ -104,12 +104,13 @@ class Agent():
         done = T.tensor(done).to(self.actor.device)
         new_state = T.tensor(new_state, dtype=T.float).to(self.actor.device)
         
+        # Calculate values
         value = self.value(state).view(-1)
-        target_value = self.target_value(new_state).view(-1)
-        target_value[done] = 0.0
+        new_state_value = self.new_state_value(new_state).view(-1)
+        new_state_value[done] = 0.0
         
-        # print("\nself.actor.sample_normal(state, reparameterize=False)\n")
-        actions, log_probs = self.actor.sample_normal(state, reparameterize=False)
+        # print("\nself.actor.sample_categorical(state, reparameterize=False)\n")
+        actions, log_probs = self.actor.sample_categorical(state, reparameterize=False)
         log_probs = log_probs.view(-1)
         q1_new_policy = self.critic_1.forward(state, actions)
         q2_new_policy = self.critic_2.forward(state, actions)
@@ -117,25 +118,16 @@ class Agent():
         critic_value = critic_value.view(-1)
         
         self.value.optimizer.zero_grad()
-        # print(f'critic_value.shape: {critic_value.shape}')
-        # print(f'log_probs.shape: {log_probs.shape}')
-        # print(f'\n T.isnan(critic_value).any(): {T.isnan(critic_value).any()}\n')
-        # print(f'\n T.isnan(log_probs).any(): {T.isnan(log_probs).any()}\n')        
+        
+        # AKA: Q - V ?
         value_target = critic_value - log_probs
-        
-        # sanity_check = (value == 0).any() or (value_target == 0).any()
-        # sanity_check = T.isnan(value).any() or T.isnan(value_target).any()        
-        # print(f'\n sanity_check: {sanity_check}\n')
-        # print(f'\n T.isnan(value).any(): {T.isnan(value).any()}\n')
-        # print(f'\n T.isnan(value_target).any(): {T.isnan(value_target).any()}\n')
-        
+
         value_loss = 0.5*F.mse_loss(value, value_target)
         value_loss.backward(retain_graph=True)
         self.value.optimizer.step()
-        # print("\nDone 1\n")
         
-        # print("\nself.actor.sample_normal(state, reparameterize=True)\n")        
-        actions, log_probs = self.actor.sample_normal(state, reparameterize=True)
+        # print("\nself.actor.sample_categorical(state, reparameterize=True)\n")        
+        actions, log_probs = self.actor.sample_categorical(state, reparameterize=True)
         log_probs = log_probs.view(-1)
         q1_new_policy = self.critic_1.forward(state, actions)
         q2_new_policy = self.critic_2.forward(state, actions)
@@ -152,7 +144,7 @@ class Agent():
         self.critic_1.optimizer.zero_grad()
         self.critic_2.optimizer.zero_grad()
 
-        q_hat = self.scale*reward + self.gamma*target_value
+        q_hat = self.scale*reward + self.gamma*new_state_value
         q1_old_policy = self.critic_1.forward(state, action).view(-1)
         q2_old_policy = self.critic_2.forward(state, action).view(-1)
         critic_1_loss = 0.5*F.mse_loss(q1_old_policy, q_hat)
