@@ -12,17 +12,17 @@ class Agent():
                  input_dims=[8], 
                  env=None, 
                  gamma=0.99, 
-                 n_actions=2, 
+                 n_actions=5, 
                  max_size=100000, 
                  tau=0.005, 
                  layer1_size=256, 
                  layer2_size=256, 
                  batch_size=256, 
-                 reward_scale=2):
+                 reward_scale=2, verbose=False):
         self.gamma = gamma
         self.tau = tau
         # print(input_dims)
-        self.memory = ReplayBuffer(max_size, input_dims, n_actions)
+        self.memory = ReplayBuffer(max_size, input_dims, 1)
         self.batch_size = batch_size
         self.n_actions = n_actions
         
@@ -48,13 +48,18 @@ class Agent():
                                          name='new_state_value')
         self.scale = reward_scale
         self.update_network_parameters(tau=1)
-        
+        self.verbose = verbose
+    
+    def verbose_print(self, text):
+        if self.verbose:
+            print(text)
+    
     def choose_action(self, observation):
         state = T.Tensor([observation]).to(self.actor.device)
-        actions, _ = self.actor.sample_categorical(state, reparameterize=False)
+        actions, _ = self.actor.sample_categorical(state)
         actions = actions.cpu().detach().numpy()[0]
-        action = np.argmax(actions)
-        return action
+        self.verbose_print(f'actions.shape: {actions.shape}')
+        return actions.squeeze()[()]
     
     def remember(self, state, action, reward, new_state, done):
         self.memory.store_transition(state, action, reward, new_state, done)
@@ -97,9 +102,10 @@ class Agent():
         if self.memory.memory_counter < self.batch_size:
             return
         # print("\n\nLearning...\n\n")
-        state, action, reward, new_state, done = self.memory.sample_buffer(self.batch_size)
+        state, saved_actions, reward, new_state, done = self.memory.sample_buffer(self.batch_size)
+        self.verbose_print(f"saved_actions.shape: {saved_actions.shape}")
         state = T.tensor(state, dtype=T.float).to(self.actor.device)
-        action = T.tensor(action, dtype=T.float).to(self.actor.device)
+        saved_actions = T.tensor(saved_actions, dtype=T.float).to(self.actor.device)
         reward = T.tensor(reward, dtype=T.float).to(self.actor.device)
         done = T.tensor(done).to(self.actor.device)
         new_state = T.tensor(new_state, dtype=T.float).to(self.actor.device)
@@ -110,8 +116,8 @@ class Agent():
         new_state_value[done] = 0.0
         
         # print("\nself.actor.sample_categorical(state, reparameterize=False)\n")
-        actions, log_probs = self.actor.sample_categorical(state, reparameterize=False)
-        log_probs = log_probs.view(-1)
+        actions, log_probs = self.actor.sample_categorical(state)
+        # log_probs = log_probs.view(-1)
         q1_new_policy = self.critic_1.forward(state, actions)
         q2_new_policy = self.critic_2.forward(state, actions)
         critic_value = T.min(q1_new_policy, q2_new_policy)
@@ -126,8 +132,8 @@ class Agent():
         value_loss.backward(retain_graph=True)
         self.value.optimizer.step()
         
-        # print("\nself.actor.sample_categorical(state, reparameterize=True)\n")        
-        actions, log_probs = self.actor.sample_categorical(state, reparameterize=True)
+        self.verbose_print(f"\n state.size() {state.size()}\n")        
+        actions, log_probs = self.actor.sample_categorical(state)
         log_probs = log_probs.view(-1)
         q1_new_policy = self.critic_1.forward(state, actions)
         q2_new_policy = self.critic_2.forward(state, actions)
@@ -145,8 +151,8 @@ class Agent():
         self.critic_2.optimizer.zero_grad()
 
         q_hat = self.scale*reward + self.gamma*new_state_value
-        q1_old_policy = self.critic_1.forward(state, action).view(-1)
-        q2_old_policy = self.critic_2.forward(state, action).view(-1)
+        q1_old_policy = self.critic_1.forward(state, saved_actions).view(-1)
+        q2_old_policy = self.critic_2.forward(state, saved_actions).view(-1)
         critic_1_loss = 0.5*F.mse_loss(q1_old_policy, q_hat)
         critic_2_loss = 0.5*F.mse_loss(q2_old_policy, q_hat)
         

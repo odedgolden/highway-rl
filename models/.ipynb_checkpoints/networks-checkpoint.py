@@ -57,7 +57,7 @@ class CriticNetwork(BaseNetwork):
         self.fc2_dims = fc2_dims
 
 
-        self.fc1 = nn.Linear(64 * 12 * 12 + self.n_actions, self.fc1_dims)
+        self.fc1 = nn.Linear(64 * 12 * 12 + 1, self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.q = nn.Linear(self.fc2_dims, 1)
         
@@ -66,7 +66,14 @@ class CriticNetwork(BaseNetwork):
     def forward(self, state, action):
         state_value = super().forward(state)
         
-        action_value = self.fc1(T.cat([state_value, action], dim=1))
+        # print(f'state_value.shape: {state_value.size()}')
+        # print(f'action.shape: {action.size()}')
+        
+        action_value = T.cat([state_value, action], dim=1)
+        
+        # print(f'action_value.shape: {action_value.size()}')
+            
+        action_value = self.fc1(action_value)
         action_value = F.relu(action_value)
         action_value = self.fc2(action_value)
         action_value = F.relu(action_value)
@@ -101,7 +108,7 @@ class ValueNetwork(BaseNetwork):
     
 
 class ActorNetwork(BaseNetwork):
-    def __init__(self, lr, input_dims, max_action, fc1_dims=256, fc2_dims=256, n_actions=2, name='actor', chkpt_dir='tmp/sac'):
+    def __init__(self, lr, input_dims, max_action, fc1_dims=256, fc2_dims=256, n_actions=5, name='actor', chkpt_dir='tmp/sac'):
         super(ActorNetwork, self).__init__(name=name, chkpt_dir=chkpt_dir, lr=lr)
         self.input_dims = input_dims
         self.n_actions = n_actions
@@ -112,42 +119,38 @@ class ActorNetwork(BaseNetwork):
         
         self.fc1 = nn.Linear(64 * 12 * 12 , self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
-        self.mu = nn.Linear(self.fc2_dims, self.n_actions)
-        self.sigma = nn.Linear(self.fc2_dims, self.n_actions)
+        self.probs = nn.Linear(self.fc2_dims, self.n_actions)        
+
 
         self.figure_out_device()
 
 
     def forward(self, state):
         prob = super().forward(state)
-        prob = self.fc1(state_value)
+        prob = self.fc1(prob)
         prob = F.relu(prob)
         prob = self.fc2(prob)
         prob = F.relu(prob)
-
+        prob = self.probs(prob)
+        prob = F.softmax(prob, 0)        
         return prob
     
-    def sample_categorical(self, state, reparameterize=True):
+    def sample_categorical(self, state):
 
         probabilities = self.forward(state)
+        # print(f'probabilities.size(): {probabilities.size()}')
         
         # Since we are dealing with discrete actions:
         distribution = Categorical(probabilities)
-        
-        if reparameterize:
-            # PyTorch reparameterization "trick":
-            # https://pytorch.org/docs/stable/distributions.html
-            action = distribution.rsample()
-        else:
-            action = distribution.sample()
-
+        action = distribution.sample()
+        # print(f'action.size(): {action.size()}')
         log_probs = distribution.log_prob(action)
 
-        # 
+        # Not sure if this is relevant:
         
-        log_probs -= T.log(1-action.pow(2) + self.reparam_noise)
-        log_probs = log_probs.sum(1, keepdim=True)
+        # log_probs -= T.log(1-action.pow(2) + self.reparam_noise)
+        log_probs = log_probs.sum(-1, keepdim=True)
         
-        #
+        ######
         
-        return action, log_probs
+        return action.unsqueeze(1), log_probs
