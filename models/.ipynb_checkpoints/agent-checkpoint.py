@@ -57,6 +57,7 @@ class Agent():
     def choose_action(self, observation):
         state = T.Tensor([observation]).to(self.actor.device)
         actions, _ = self.actor.sample_categorical(state)
+        self.verbose_print(actions)
         actions = actions.cpu().detach().numpy()[0]
         self.verbose_print(f'actions.shape: {actions.shape}')
         return actions.squeeze()[()]

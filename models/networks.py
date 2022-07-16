@@ -108,7 +108,7 @@ class ValueNetwork(BaseNetwork):
     
 
 class ActorNetwork(BaseNetwork):
-    def __init__(self, lr, input_dims, max_action, fc1_dims=256, fc2_dims=256, n_actions=5, name='actor', chkpt_dir='tmp/sac'):
+    def __init__(self, lr, input_dims, max_action, fc1_dims=256, fc2_dims=256, n_actions=5, name='actor', chkpt_dir='tmp/sac', droput_p=0.1):
         super(ActorNetwork, self).__init__(name=name, chkpt_dir=chkpt_dir, lr=lr)
         self.input_dims = input_dims
         self.n_actions = n_actions
@@ -120,7 +120,7 @@ class ActorNetwork(BaseNetwork):
         self.fc1 = nn.Linear(64 * 12 * 12 , self.fc1_dims)
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.probs = nn.Linear(self.fc2_dims, self.n_actions)        
-
+        self.drop = nn.Dropout(p=droput_p)
 
         self.figure_out_device()
 
@@ -132,15 +132,16 @@ class ActorNetwork(BaseNetwork):
         prob = self.fc2(prob)
         prob = F.relu(prob)
         prob = self.probs(prob)
-        prob = F.relu(prob)        
-        prob = F.softmax(prob, 0)        
+        prob = F.relu(prob)
+        ptob = self.drop(prob)
+        prob = F.softmax(prob)        
         return prob
     
     def sample_categorical(self, state):
 
         probabilities = self.forward(state)
         # print(f'probabilities.size(): {probabilities.size()}')
-        
+        # print(f'probabilities: {probabilities}')        
         # Since we are dealing with discrete actions:
         distribution = Categorical(probabilities)
         action = distribution.sample()
@@ -153,5 +154,7 @@ class ActorNetwork(BaseNetwork):
         log_probs = log_probs.sum(-1, keepdim=True)
         
         ######
+        
+
         
         return action.unsqueeze(1), log_probs
