@@ -108,7 +108,7 @@ class ValueNetwork(BaseNetwork):
     
 
 class ActorNetwork(BaseNetwork):
-    def __init__(self, lr, input_dims, max_action, fc1_dims=256, fc2_dims=256, n_actions=5, name='actor', chkpt_dir='tmp/sac', droput_p=0.2):
+    def __init__(self, lr, input_dims, max_action, fc1_dims=256, fc2_dims=256, n_actions=5, name='actor', chkpt_dir='tmp/sac', droput_p=0.3):
         super(ActorNetwork, self).__init__(name=name, chkpt_dir=chkpt_dir, lr=lr)
         self.input_dims = input_dims
         self.n_actions = n_actions
