@@ -132,6 +132,7 @@ class ActorNetwork(BaseNetwork):
         prob = self.fc2(prob)
         prob = F.relu(prob)
         prob = self.probs(prob)
+        prob = F.relu(prob)        
         prob = F.softmax(prob, 0)        
         return prob
     
