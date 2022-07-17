@@ -108,7 +108,7 @@ class ValueNetwork(BaseNetwork):
     
 
 class ActorNetwork(BaseNetwork):
-    def __init__(self, lr, input_dims, max_action, fc1_dims=256, fc2_dims=256, n_actions=5, name='actor', chkpt_dir='tmp/sac', droput_p=0.3):
+    def __init__(self, lr, input_dims, max_action, fc1_dims=256, fc2_dims=256, n_actions=5, name='actor', chkpt_dir='tmp/sac', droput_p=0.15):
         super(ActorNetwork, self).__init__(name=name, chkpt_dir=chkpt_dir, lr=lr)
         self.input_dims = input_dims
         self.n_actions = n_actions
@@ -121,8 +121,9 @@ class ActorNetwork(BaseNetwork):
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.probs = nn.Linear(self.fc2_dims, self.n_actions)        
         self.drop = nn.Dropout(p=droput_p)
-
+        
         self.figure_out_device()
+
 
 
     def forward(self, state):
@@ -140,10 +141,16 @@ class ActorNetwork(BaseNetwork):
     def sample_categorical(self, state):
 
         probabilities = self.forward(state)
+        # print(type(probabilities))
         # print(f'probabilities.size(): {probabilities.size()}')
-        # print(f'probabilities: {probabilities}')        
+        # print(f'probabilities: {probabilities}')  
+        if (probabilities > 0.8).all(dim=0).any(): # don't obsess over 1 or 4
+            probabilities = probabilities*0 + 0.2
+            # print("Larger than 0.8")
         # Since we are dealing with discrete actions:
         distribution = Categorical(probabilities)
+        # print(f'distribution: {distribution}')  
+
         action = distribution.sample()
         # print(f'action.size(): {action.size()}')
         log_probs = distribution.log_prob(action)
