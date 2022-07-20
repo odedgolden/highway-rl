@@ -5,7 +5,8 @@ import torch
 class ReplayBuffer:
     buffers = {"curr_states", "actions", "next_states", "rewards", "dones", "log_probs"}
 
-    def __init__(self, buffer_max_size=500):
+    def __init__(self, buffer_max_size=500, sampling_percent=None):
+        assert sampling_percent
         self.actions = []
         self.curr_states = []
         self.next_states = []
@@ -13,6 +14,7 @@ class ReplayBuffer:
         self.dones = []
         self.log_probs = []
         self.buffer_max_size = buffer_max_size
+        self.sampling_percent = sampling_percent
 
     def add(self, **kwargs):
         for key, value in kwargs.items():
@@ -29,7 +31,7 @@ class ReplayBuffer:
             print(f"not enough data for train {curr_buffer_size} values")
             return []
         batch_size = (
-            round(0.7 * curr_buffer_size)
+            round(self.sampling_percent * curr_buffer_size)
             if curr_buffer_size > 150
             else curr_buffer_size // 2
         )
