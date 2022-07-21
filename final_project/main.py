@@ -1,5 +1,6 @@
 import copy
 import os
+import random
 from datetime import datetime
 from collections import Counter
 
@@ -49,6 +50,7 @@ np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
 EPOCHS = 500
 DEFAULT_BUFFER_MAX_SIZE = 500
 SHOW_VIDEO = False
+STOCHASTIC_RULE = 0.85
 
 EXPERIMENT_FILENAME = "highway_experiments.csv"
 
@@ -81,6 +83,8 @@ class Agent:
         self.all_learning_durations = []
         self.number_of_steps = []
         self.car_crashed = []
+        self.all_actor_loss = []
+        self.all_critic_loss = []
         self._init_env()
 
     def _init_env(self):
@@ -108,6 +112,7 @@ class Agent:
             actions_probs = self.actor_net.forward([curr_state])
             all_probs.append(actions_probs)
             action = self._choose_action(actions_probs)[0]
+            action_step = self._apply_stochastic_env(action)
             next_state, reward, done, extra_info = self.env.step(action.item())
             if extra_info["crashed"]:
                 before = reward
@@ -201,6 +206,8 @@ class Agent:
         self.critic_net.optimizer.step()
 
         self.soft_update_networks_weights()
+        self.all_actor_loss.append(actor_loss)
+        self.all_critic_loss.append(critic_loss)
         print(
             f"done train episode #{episode_num}, actor-loss {actor_loss} and critic_loss {critic_loss}"
         )
@@ -278,6 +285,8 @@ class Agent:
                     "total_learning_duration": sum(self.all_learning_durations),
                     "number_of_steps": self.number_of_steps,
                     "total_number_of_steps": sum(self.number_of_steps),
+                    "all_actor_loss": self.all_actor_loss,
+                    "all_critic_loss": self.all_critic_loss,
                     "car_crashed": self.car_crashed,
                     "start_time": self.start_time,
                     "last_update": datetime.now(),
@@ -286,6 +295,14 @@ class Agent:
         )
 
         df_experiments.to_csv(EXPERIMENT_FILENAME)
+
+    def _apply_stochastic_env(self, action):
+        action_step = action.item()
+        if random.random() <= STOCHASTIC_RULE:
+            return action_step
+        else:
+            all_other_actions = [x for x in range(5) if x != action_step]
+            return random.choice(all_other_actions)
 
 
 if __name__ == "__main__":
