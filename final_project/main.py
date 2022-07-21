@@ -38,7 +38,7 @@ import ast
 file = open("../highway-config/config_ex1.txt", "r")
 contents = file.read()
 config1 = ast.literal_eval(contents)
-config1["duration"] = 3
+config1["duration"] = 500
 file.close()
 # ============================================
 GAMMA = 0.99
