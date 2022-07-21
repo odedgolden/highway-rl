@@ -188,9 +188,6 @@ class Agent:
         best_average_score = env.reward_range[0]
         best_score = env.reward_range[0]
         score_history = []
-        
-        print(f"Started at: {datetime.now()}")
-
 
         for i in range(self.EPOCHS):
             score, steps, actions_counter = self.single_episode(episode_num=i)
@@ -202,6 +199,7 @@ class Agent:
             print(f'\nEpisode: {i}, Best Average Score {best_average_score}, Average Score: {avg_score}, Best Score: {best_score}, Steps: {steps} \n')
             print(f'Action Count: {actions_counter}, Time: {datetime.now()}\n\n')
             self.learn(episode_num=i)
+        return score_history
 
     def _choose_action(self, actions_probs):
         action = actions_probs.sample()
