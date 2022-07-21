@@ -101,7 +101,7 @@ class Agent:
             if extra_info["crashed"]:
                 before = reward
                 # reward -=15
-                print(f"crashed!! reward was {before} and now {reward}")
+                # print(f"crashed!! reward was {before} and now {reward}")
             sum_rewards += reward
             all_rewards.append(reward)
             # print(next_state.shape)
@@ -132,10 +132,9 @@ class Agent:
             curr_state = next_state
 
         self.ALL_REWARDS_SUM.append(sum_rewards)
-
-        print(
-            f"done episode number {episode_num} with sum-rewards {sum_rewards} after {steps} steps actions-counter:{actions_counter}"
-        )
+        return sum_rewards, steps, actions_counter
+        
+        # print(f"Episode: {episode_num} with sum-rewards {sum_rewards} after {steps} steps actions-counter:{actions_counter}")
 
     def _estimate_step_value(self, done, next_state, reward):
         next_state_value = self._target_critic_net_on_step(next_state)
@@ -183,13 +182,25 @@ class Agent:
 
         self.soft_update_networks_weights()
         duration = (datetime.now() - start_time).total_seconds()
-        print(
-            f"done train episode #{episode_num}, actor-loss {actor_loss} and critic_loss {critic_loss}, took {duration} seconds"
-        )
+        # print(f"Episode #{episode_num}, actor-loss {actor_loss} and critic_loss {critic_loss}, took {duration} seconds")
 
     def play(self):
+        best_average_score = env.reward_range[0]
+        best_score = env.reward_range[0]
+        score_history = []
+        
+        print(f"Started at: {datetime.now()}")
+
+
         for i in range(self.EPOCHS):
-            self.single_episode(episode_num=i)
+            score, steps, actions_counter = self.single_episode(episode_num=i)
+            score_history.append(score)
+            avg_score = np.mean(score_history[-100:])
+            best_score = max(score, best_score)
+            best_average_score = max(best_average_score, avg_score)
+
+            print(f'\nEpisode: {i}, Best Average Score {best_average_score}, Average Score: {avg_score}, Best Score: {best_score}, Steps: {steps} \n')
+            print(f'Action Count: {actions_counter}, Time: {datetime.now()}\n\n')
             self.learn(episode_num=i)
 
     def _choose_action(self, actions_probs):

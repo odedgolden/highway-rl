@@ -33,7 +33,7 @@ class ReplayBuffer:
             if curr_buffer_size > 150
             else curr_buffer_size // 2
         )
-        print(f"training on replay buffer of size {batch_size}\{curr_buffer_size}")
+        # print(f"training on replay buffer of size {batch_size}\{curr_buffer_size}")
         batch_indexes = np.random.choice(
             curr_buffer_size, batch_size, replace=False
         )  # todo
