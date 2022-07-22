@@ -82,6 +82,9 @@ class Agent:
         self.config_3_env_type = config_3_env_type
         self.env_type = self.config_3_env_type if config_name=='config3' else 'highway-fast-v0'
 
+        if config_name != 'config1':
+            assert env_stochasticity==0
+
         assert not (config_name =='config3' and config_3_env_type not in CONFIG3_ENVS), \
             'with config3 you must specify a valid config_3_env_type'
 

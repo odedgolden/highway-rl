@@ -7,7 +7,7 @@ def run():
             tau=0.001,
             epochs=500,
             env_stochasticity=0,
-            experiment_description="EX2 - Highway-Env",
+            experiment_description="EX3 - Highway-Env",
             replay_buffer_sampling_percent=0.7,
             min_buffer_size_for_learn=30,
             config_name='config3',
