@@ -42,30 +42,28 @@ class ActorNet(nn.Module):
 class CriticNet(nn.Module):
     def __init__(self):
         super(CriticNet, self).__init__()
-        self.shared_layers = nn.Sequential(  # todo: name
-            nn.Conv2d(4, 32, kernel_size=8, stride=4, padding=0),
+        # self.shared_layers = nn.Sequential(  # todo: name
+        #     nn.Conv2d(4, 32, kernel_size=8, stride=4, padding=0),
+        #     nn.ReLU(),
+        #     nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
+        #     nn.ReLU(),
+        #     nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
+        #     # nn.ReLU(),
+        #     # nn.Flatten(start_dim=0),
+        #     # nn.Linear(64 * 12 * 12, 64),
+        # )
+
+        self.shared_layers = nn.Sequential(
+            nn.Conv2d(4, 32, (5, 5)),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
+            nn.Flatten(),
+            nn.Linear(32 * 124 * 124, 128),
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
-            # nn.ReLU(),
-            # nn.Flatten(start_dim=0),
-            # nn.Linear(64 * 12 * 12, 64),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
         )
 
-        self.value_layer = nn.Sequential(  # todo: name
-            nn.Conv2d(64, 64, kernel_size=(3, 3), padding=0),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=(3, 3), padding=0),
-            nn.ReLU(),
-            # convgru?
-            nn.Conv2d(64, 1, kernel_size=(3, 3), padding=0),
-            # nn.ReLU(),
-            nn.Flatten(),
-            # nn.Linear(36, 128),
-            # nn.ReLU(),
-            nn.Linear(36, 128),
-        )
 
         self.action_layer = nn.Linear(1, 128)
         self.action_layer2 = nn.Linear(128, 256)
@@ -78,7 +76,7 @@ class CriticNet(nn.Module):
     def forward(self, x, action):
         input_tensor = torch.FloatTensor(x).to(device=self.device)
         hidden = self.shared_layers(input_tensor)
-        hidden = self.value_layer(hidden)
+        # hidden = self.value_layer(hidden)
 
         input_action = action.type(torch.FloatTensor).to(device=self.device)
         action_layer = self.action_layer(input_action)  # self.action_layer(action)
