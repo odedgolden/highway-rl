@@ -1,49 +1,48 @@
-# General
 import copy
 import os
 import random
 from datetime import datetime
 from collections import Counter
+
+import gym
 import pandas as pd
+import torch.nn.functional as F
+import highway_env
 import uuid
 import sys
-import numpy as np
-import ast
 
-
-# Local
-from models.replay_buffer import ReplayBuffer
-from models.actor_critic_models import ActorNet, CriticNet
-
-
-# Gym Env
-import gym
-from gym import logger as gymlogger
-from gym.wrappers import Monitor
-from gym.utils import seeding
-from gym import error, spaces, utils
-import highway_env
-gymlogger.set_level(40)  # error only
-
-
-# Neural Networks
 import torch
 from torch.distributions import Categorical
-import torch.nn.functional as F
+
+from final_project.replay_buffer import ReplayBuffer
 
 
 sys.path.insert(0, "/content/highway-env/scripts/")
 from tqdm.notebook import trange
-import matplotlib.pyplot as plt
 
+# from utils import record_videos, show_videos
+import numpy as np
+from gym import logger as gymlogger
+from gym.wrappers import Monitor
+from gym.utils import seeding
+from gym import error, spaces, utils
+
+gymlogger.set_level(40)  # error only
+import matplotlib.pyplot as plt
+import actor_critic_models
+import ast
+
+# %load_ext tensorboard
+# %matplotlib inline
 
 # =============== DO NOT DELETE ===============
-file = open("./highway-config/config_ex1.txt", "r")
+file = open("../highway-config/config_ex1.txt", "r")
 contents = file.read()
 config1 = ast.literal_eval(contents)
 config1["duration"] = 500
 file.close()
 # ============================================
+GAMMA = 0.99
 
 np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
 
@@ -64,16 +63,7 @@ class Agent:
         tau=0.001,
         experiment_description="",
         replay_buffer_sampling_percent=0.7,
-        env_name="highway-fast-v0"
     ):
-        self.gamma = gamma
-        self.tau = tau
-        self.unq_id = str(uuid.uuid4())  # for tracking experiments
-        self.experiment_description = experiment_description
-        self.replay_buffer_sampling_percent = replay_buffer_sampling_percent
-        self.start_time = datetime.now()  
-        self.env_name = env_name
-        
         self.actor_net = actor_critic_models.ActorNet()
         self.critic_net = actor_critic_models.CriticNet()
         self.target_actor_net = copy.deepcopy(self.actor_net)
@@ -82,6 +72,12 @@ class Agent:
             buffer_max_size=buffer_max_size,
             sampling_percent=replay_buffer_sampling_percent,
         )
+        self.gamma = gamma
+        self.tau = tau
+        self.unq_id = str(uuid.uuid4())  # for tracking experiments
+        self.experiment_description = experiment_description
+        self.replay_buffer_sampling_percent = replay_buffer_sampling_percent
+        self.start_time = datetime.now()
 
         self.all_rewards_sum = []
         self.all_learning_durations = []
@@ -90,12 +86,9 @@ class Agent:
         self.all_actor_loss = []
         self.all_critic_loss = []
         self._init_env()
-                
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
 
     def _init_env(self):
-        self.env = gym.make(self.env_name)
+        self.env = gym.make("highway-fast-v0")
         self.env.configure(config1)
         obs = self.env.reset()
 
