@@ -7,26 +7,26 @@ Transition = namedtuple('Transition',
                         ("curr_states", "actions", "next_states", "rewards", "dones", "log_probs"))
 
 class ReplayBuffer:
-    buffers = {"curr_states", "actions", "next_states", "rewards", "dones", "log_probs"}
 
-    def __init__(self, buffer_max_size=500, sampling_percent=None):
+    def __init__(self, buffer_max_size=500, sampling_percent=None, min_buffer_size_for_learn=150):
         assert sampling_percent
         self.memory = deque([], maxlen=buffer_max_size)
         self.log_probs = []
         self.buffer_max_size = buffer_max_size
         self.sampling_percent = sampling_percent
+        self.min_buffer_size_for_learn = min_buffer_size_for_learn
 
     def add(self, **kargs):
         self.memory.append(Transition(**kargs))
 
     def sample_values(self):
         curr_buffer_size = len(self.memory)
-        if curr_buffer_size < 30:
+        if curr_buffer_size < self.min_buffer_size_for_learn:
             print(f"not enough data for train {curr_buffer_size} values")
             return []
         batch_size = (
             round(self.sampling_percent * curr_buffer_size)
-            if curr_buffer_size > 150
+            if curr_buffer_size > self.min_buffer_size_for_learn + 50
             else curr_buffer_size // 2
         )
         # print(f"training on replay buffer of size {batch_size}\{curr_buffer_size}")

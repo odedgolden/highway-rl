@@ -57,6 +57,7 @@ class Agent:
         env_stochasticity=0.15,
         experiment_description="",
         replay_buffer_sampling_percent=0.7,
+        min_buffer_size_for_learn=300
     ):
         # Experiment Params
         self.gamma = gamma
@@ -66,8 +67,10 @@ class Agent:
         self.unq_id = str(uuid.uuid4())  # for tracking experiments
         self.experiment_description = experiment_description
         self.replay_buffer_sampling_percent = replay_buffer_sampling_percent
-        self.start_time = datetime.now()        
-        
+        self.buffer_max_size = buffer_max_size
+        self.min_buffer_size_for_learn = min_buffer_size_for_learn
+        self.start_time = datetime.now()
+
         # Init Logging
         self.all_rewards_sum = []
         self.all_learning_durations = []
@@ -85,6 +88,7 @@ class Agent:
         self.replay_buffer_memory = ReplayBuffer(
             buffer_max_size=buffer_max_size,
             sampling_percent=replay_buffer_sampling_percent,
+            min_buffer_size_for_learn=min_buffer_size_for_learn,
         )
         self._init_env()
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -115,7 +119,7 @@ class Agent:
             all_probs.append(actions_probs)
             action = self._choose_action(actions_probs)[0]
             action_step = self._apply_stochastic_env(action)
-            next_state, reward, done, extra_info = self.env.step(action.item())
+            next_state, reward, done, extra_info = self.env.step(action_step)
             if extra_info["crashed"]:
                 before = reward
                 # reward -=15
@@ -169,9 +173,10 @@ class Agent:
         self.actor_net.optimizer.zero_grad()
 
         sampled_values = self.replay_buffer_memory.sample_values()
-        current_buffer = Transition(*zip(*sampled_values))
-        if not current_buffer:
+        if not sampled_values:
             return
+
+        current_buffer = Transition(*zip(*sampled_values))
 
         buffer_curr_states = np.array(current_buffer.curr_states)
         buffer_next_states = np.array(current_buffer.next_states)
@@ -285,6 +290,8 @@ class Agent:
                     "experiment_description": self.experiment_description,
                     "gamma": self.gamma,
                     "tau": self.tau,
+                    "min_buffer_size_for_learn": self.min_buffer_size_for_learn,
+                    "buffer_max_size": self.buffer_max_size,
                     "training_episodes": len(self.all_rewards_sum),
                     "rewards_sums_array": self.all_rewards_sum,
                     "replay_buffer_sampling_percent": self.replay_buffer_sampling_percent,
