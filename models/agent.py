@@ -34,11 +34,16 @@ gymlogger.set_level(40)  # error only
 import matplotlib.pyplot as plt
 
 # =============== DO NOT DELETE ===============
-file = open("./highway-config/config_ex1.txt", "r")
-contents = file.read()
-config1 = ast.literal_eval(contents)
-config1["duration"] = 500
-file.close()
+files = [open(f"./highway-config/config_ex{i}.txt", "r") for i in range(1,5)]
+
+contents = [x.read() for x in files]
+config1 = ast.literal_eval(contents[1])
+config2 = ast.literal_eval(contents[2])
+config3 = ast.literal_eval(contents[3])
+for curr_config in (config1, config2, config3):
+    curr_config['duration'] = 500
+[x.close() for x in files]
+contents = []
 # ============================================
 
 np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
@@ -57,7 +62,8 @@ class Agent:
         env_stochasticity=0.15,
         experiment_description="",
         replay_buffer_sampling_percent=0.7,
-        min_buffer_size_for_learn=300
+        min_buffer_size_for_learn=300,
+        config_name='config1'
     ):
         # Experiment Params
         self.gamma = gamma
@@ -68,6 +74,7 @@ class Agent:
         self.experiment_description = experiment_description
         self.replay_buffer_sampling_percent = replay_buffer_sampling_percent
         self.buffer_max_size = buffer_max_size
+        self.config_name = config_name
         self.min_buffer_size_for_learn = min_buffer_size_for_learn
         self.start_time = datetime.now()
 
@@ -96,7 +103,7 @@ class Agent:
 
     def _init_env(self):
         self.env = gym.make("highway-fast-v0")
-        self.env.configure(config1)
+        self.env.configure(eval(self.config_name))
         obs = self.env.reset()
 
     def single_episode(self, episode_num):
@@ -289,6 +296,7 @@ class Agent:
                     "experiment_description": self.experiment_description,
                     "gamma": self.gamma,
                     "tau": self.tau,
+                    "config_file": self.config_name,
                     "min_buffer_size_for_learn": self.min_buffer_size_for_learn,
                     "buffer_max_size": self.buffer_max_size,
                     "training_episodes": len(self.all_rewards_sum),
