@@ -71,6 +71,7 @@ class Agent:
             buffer_max_size=buffer_max_size,
             sampling_percent=replay_buffer_sampling_percent,
         )
+        self.buffer_max_size = buffer_max_size
         self.gamma = gamma
         self.tau = tau
         self.unq_id = str(uuid.uuid4())  # for tracking experiments
@@ -279,6 +280,7 @@ class Agent:
                     "tau": self.tau,
                     "training_episodes": len(self.all_rewards_sum),
                     "rewards_sums_array": self.all_rewards_sum,
+                    "buffer_max_size": self.buffer_max_size,
                     "replay_buffer_sampling_percent": self.replay_buffer_sampling_percent,
                     "total_rewards_sum": sum(self.all_rewards_sum),
                     "learning_durations_seconds": self.all_learning_durations,
@@ -311,6 +313,5 @@ if __name__ == "__main__":
         gamma=0.99,
         tau=0.001,
         replay_buffer_sampling_percent=0.7,
-        experiment_description='ex1_replay_buffer_queue',
     )
     highway_agent.play()
