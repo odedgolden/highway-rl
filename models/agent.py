@@ -4,6 +4,8 @@ import os
 import random
 from datetime import datetime
 from collections import Counter
+from pathlib import Path
+
 import pandas as pd
 import ast
 import numpy as np
@@ -52,6 +54,7 @@ np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
 EXPERIMENT_FILENAME = "highway_experiments.csv"
 
 CONFIG3_ENVS = ('highway-fast-v0', 'merge-v0', 'roundabout-v0')
+SAVE_WEIGHTS_EVERY = 50
 
 class Agent:
     def __init__(
@@ -116,7 +119,7 @@ class Agent:
         self.env.configure(eval(self.config_name))
         obs = self.env.reset()
 
-    def single_episode(self, episode_num):
+    def single_episode(self, episode_num, render_screen=False):
         self.actor_net.eval()
         self.critic_net.eval()
         curr_state = self.env.reset()
@@ -154,7 +157,7 @@ class Agent:
             all_next_state_values.append(next_state_value)
             all_done.append(done)
 
-            if episode_num % 10 == 0:
+            if episode_num % 10 == 0 and render_screen:
                 screen = self.env.render(mode="rgb_array")
                 plt.imshow(screen)
 
@@ -231,13 +234,13 @@ class Agent:
         #     f"done train episode #{episode_num}, actor-loss {actor_loss} and critic_loss {critic_loss}"
         # )
 
-    def play(self):
+    def play(self, render_screen=False):
         self.best_average_score = self.env.reward_range[0]
         self.best_score = self.env.reward_range[0]
         self.score_history = []
         
         for i in range(self.epochs):
-            score, steps, actions_counter = self.single_episode(episode_num=i)
+            score, steps, actions_counter = self.single_episode(episode_num=i, render_screen=render_screen)
             
             self.score_history.append(score)
             avg_score = np.mean(self.score_history[-100:])
@@ -254,6 +257,9 @@ class Agent:
 
             if i % 5:
                 self._record_experiment()
+            if i % SAVE_WEIGHTS_EVERY == 0:
+                self._save_model()
+
 
     def _choose_action(self, actions_probs):
         action = actions_probs.sample()
@@ -339,3 +345,9 @@ class Agent:
         else:
             all_other_actions = [x for x in range(5) if x != action_step]
             return random.choice(all_other_actions)
+
+    def _save_model(self):
+        Path("./weights").mkdir(parents=True, exist_ok=True)
+        path = f'./weights/actor_{self.unq_id}.model'
+        torch.save(self.actor_net.state_dict(), path)
+        print(f'{datetime.now()} model save to {path}')
