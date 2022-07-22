@@ -9,7 +9,7 @@ def run():
             env_stochasticity=0.15,
             experiment_description="env 1 oded code version",
             replay_buffer_sampling_percent=0.7,
-            min_buffer_size_for_learn=300)
+            min_buffer_size_for_learn=30)
     agent.play()
 
 if __name__ == '__main__':

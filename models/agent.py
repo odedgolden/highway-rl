@@ -224,7 +224,7 @@ class Agent:
             self.best_score = max(score, self.best_score)
             self.best_average_score = max(self.best_average_score, avg_score)
 
-            print(f'\nEpisode: {i}, Best Average Score {self.best_average_score}, Average Score: {avg_score}, Best Score: {self.best_score}, Steps: {steps} \n')
+            print(f'Episode: {i} got score {score}, Best Average Score {self.best_average_score}, Average Score: {avg_score}, Best Score: {self.best_score}, Steps: {steps} \n')
             print(f'Action Count: {actions_counter}, Time: {datetime.now()}\n\n')
             
             start_time = datetime.now()
@@ -232,7 +232,6 @@ class Agent:
             learning_duration = (datetime.now() - start_time).total_seconds()
             self.all_learning_durations.append(learning_duration)
 
-            
             if i % 5:
                 self._record_experiment()
 

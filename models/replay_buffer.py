@@ -29,7 +29,7 @@ class ReplayBuffer:
             if curr_buffer_size > self.min_buffer_size_for_learn + 50
             else curr_buffer_size // 2
         )
-        # print(f"training on replay buffer of size {batch_size}\{curr_buffer_size}")
+        print(f"training on replay buffer of size {batch_size}\{curr_buffer_size}")
 
         sampled_torches = random.sample(self.memory, batch_size)
         return sampled_torches
