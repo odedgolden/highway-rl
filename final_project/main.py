@@ -14,8 +14,7 @@ import sys
 import torch
 from torch.distributions import Categorical
 
-from final_project.replay_buffer import ReplayBuffer
-
+from final_project.replay_buffer import ReplayBuffer, Transition
 
 sys.path.insert(0, "/content/highway-env/scripts/")
 from tqdm.notebook import trange
@@ -128,7 +127,7 @@ class Agent:
             all_next_state_values.append(next_state_value)
             all_done.append(done)
 
-            if (episode_num > 100 and episode_num % 20 == 0) and SHOW_VIDEO:
+            if episode_num % 10 == 0: #(episode_num > 100 and episode_num % 20 == 0) and SHOW_VIDEO:
                 screen = self.env.render(mode="rgb_array")
                 plt.imshow(screen)
 
@@ -175,14 +174,15 @@ class Agent:
         self.critic_net.optimizer.zero_grad()
         self.actor_net.optimizer.zero_grad()
 
-        current_buffer = self.replay_buffer_memory.sample_values()
+        sampled_values = self.replay_buffer_memory.sample_values()
+        current_buffer = Transition(*zip(*sampled_values))
         if not current_buffer:
             return
 
-        buffer_curr_states = current_buffer["curr_states"]
-        buffer_next_states = current_buffer["next_states"]
-        buffer_rewards = current_buffer["rewards"]
-        buffer_dones = current_buffer["dones"]
+        buffer_curr_states = current_buffer.curr_states
+        buffer_next_states = current_buffer.next_states
+        buffer_rewards = current_buffer.rewards
+        buffer_dones = current_buffer.dones
         buffer_actor_probs = self.target_actor_net.forward(buffer_curr_states)
         buffer_log_probs = buffer_actor_probs.log_prob(buffer_actor_probs.sample())
 
@@ -307,9 +307,10 @@ class Agent:
 
 if __name__ == "__main__":
     highway_agent = Agent(
-        buffer_max_size=DEFAULT_BUFFER_MAX_SIZE,
+        buffer_max_size=500,
         gamma=0.99,
         tau=0.001,
         replay_buffer_sampling_percent=0.7,
+        experiment_description='ex1_replay_buffer_queue',
     )
     highway_agent.play()
