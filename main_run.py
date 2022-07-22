@@ -6,10 +6,12 @@ def run():
             gamma=0.99,
             tau=0.001,
             epochs=500,
-            env_stochasticity=0.15,
-            experiment_description="env 1 oded code version",
+            env_stochasticity=0,
+            experiment_description="EX2 - Highway-Env",
             replay_buffer_sampling_percent=0.7,
-            min_buffer_size_for_learn=30)
+            min_buffer_size_for_learn=30,
+            config_name='config3',
+            config_3_env_type='roundabout-v0')
     agent.play()
 
 if __name__ == '__main__':

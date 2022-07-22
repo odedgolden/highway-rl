@@ -51,6 +51,7 @@ np.set_printoptions(formatter={"float": lambda x: "{0:0.3f}".format(x)})
 
 EXPERIMENT_FILENAME = "highway_experiments.csv"
 
+CONFIG3_ENVS = ('highway-fast-v0', 'merge-v0', 'roundabout-v0')
 
 class Agent:
     def __init__(
@@ -63,7 +64,8 @@ class Agent:
         experiment_description="",
         replay_buffer_sampling_percent=0.7,
         min_buffer_size_for_learn=300,
-        config_name='config1'
+        config_name='config1',
+        config_3_env_type=None
     ):
         # Experiment Params
         self.gamma = gamma
@@ -77,6 +79,11 @@ class Agent:
         self.config_name = config_name
         self.min_buffer_size_for_learn = min_buffer_size_for_learn
         self.start_time = datetime.now()
+        self.config_3_env_type = config_3_env_type
+        self.env_type = self.config_3_env_type if config_name=='config3' else 'highway-fast-v0'
+
+        assert not (config_name =='config3' and config_3_env_type not in CONFIG3_ENVS), \
+            'with config3 you must specify a valid config_3_env_type'
 
         # Init Logging
         self.all_rewards_sum = []
@@ -102,7 +109,7 @@ class Agent:
 
 
     def _init_env(self):
-        self.env = gym.make("highway-fast-v0")
+        self.env = gym.make(self.env_type)
         self.env.configure(eval(self.config_name))
         obs = self.env.reset()
 
@@ -124,8 +131,11 @@ class Agent:
         while not done:
             actions_probs = self.actor_net.forward(np.expand_dims(curr_state, axis=0))
             all_probs.append(actions_probs)
-            action = self._choose_action(actions_probs)[0]
-            action_step = self._apply_stochastic_env(action)
+
+            action_step = 100
+            while action_step not in self.env.get_available_actions():
+                action = self._choose_action(actions_probs)[0]
+                action_step = self._apply_stochastic_env(action)
             next_state, reward, done, extra_info = self.env.step(action_step)
             if extra_info["crashed"]:
                 before = reward
@@ -141,9 +151,9 @@ class Agent:
             all_next_state_values.append(next_state_value)
             all_done.append(done)
 
-            # if episode_num % 10 == 0:
-            #     screen = self.env.render(mode="rgb_array")
-            #     plt.imshow(screen)
+            if episode_num % 10 == 0:
+                screen = self.env.render(mode="rgb_array")
+                plt.imshow(screen)
 
             self.replay_buffer_memory.add(
                 curr_states=curr_state,
@@ -293,6 +303,7 @@ class Agent:
                 {
                     "unq_id": self.unq_id,
                     "env_name": str(self.env.env),
+                    "env_type": self.env_type,
                     "experiment_description": self.experiment_description,
                     "gamma": self.gamma,
                     "tau": self.tau,
