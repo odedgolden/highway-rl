@@ -143,7 +143,7 @@ class Agent:
                 next_states=next_state,
                 rewards=reward,
                 dones=done,
-                actions=action,
+                actions=action_step,
                 log_probs=log_prob,
             )
             actions_counter[action.item()] += 1
