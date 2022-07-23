@@ -135,7 +135,8 @@ class Agent:
         all_done = []
 
         while not done:
-            actions_probs = self.actor_net.forward(np.expand_dims(curr_state, axis=0))
+            with torch.no_grad():
+                actions_probs = self.actor_net.forward(np.expand_dims(curr_state, axis=0))
             all_probs.append(actions_probs)
 
             action_step = 100
@@ -183,10 +184,11 @@ class Agent:
         # )
 
     def _estimate_step_value(self, done, next_state, reward):
-        next_state_value = self._target_critic_net_on_step(next_state)
-        reward_tensor = torch.FloatTensor(reward).to(device=self.device)[:, None]
-        done_tensor = torch.FloatTensor(done).to(device=self.device)[:, None]
-        target_value = reward_tensor + self.gamma * next_state_value * (1 - done_tensor)
+        with torch.no_grad():
+            next_state_value = self._target_critic_net_on_step(next_state)
+            reward_tensor = torch.FloatTensor(reward).to(device=self.device)[:, None]
+            done_tensor = torch.FloatTensor(done).to(device=self.device)[:, None]
+            target_value = reward_tensor + self.gamma * next_state_value * (1 - done_tensor)
         return target_value
 
     def learn(self, episode_num):
@@ -205,8 +207,9 @@ class Agent:
         buffer_next_states = np.array(current_buffer.next_states)
         buffer_rewards = current_buffer.rewards
         buffer_dones = current_buffer.dones
-        buffer_actor_probs = self.target_actor_net.forward(buffer_curr_states)
-        buffer_log_probs = buffer_actor_probs.log_prob(buffer_actor_probs.sample())
+        with torch.no_grad():
+            buffer_actor_probs = self.target_actor_net.forward(buffer_curr_states)
+            buffer_log_probs = buffer_actor_probs.log_prob(buffer_actor_probs.sample())
 
         buffer_target_value = self._estimate_step_value(
             buffer_dones, torch.FloatTensor(buffer_next_states), buffer_rewards
@@ -270,9 +273,10 @@ class Agent:
         self.target_critic_net.eval()
 
         states_batches = torch.Tensor(np.expand_dims(state, axis=0)) if len(state.shape) == 3 else state
-        actions_probs = self.target_actor_net.forward(states_batches)
-        action = self._choose_action(actions_probs)
-        action_batch = action[:, None]
+        with torch.no_grad():
+            actions_probs = self.target_actor_net.forward(states_batches)
+            action = self._choose_action(actions_probs)
+            action_batch = action[:, None]
         critic_value = self.target_critic_net.forward(states_batches, action_batch)
 
         return critic_value
