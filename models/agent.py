@@ -101,6 +101,7 @@ class Agent:
         self.car_crashed = []
         self.all_actor_loss = []
         self.all_critic_loss = []
+        self.all_actions_counter = []
 
  
         # Init Agent
@@ -181,6 +182,7 @@ class Agent:
             curr_state = next_state
 
         self.all_rewards_sum.append(sum_rewards)
+        self.all_actions_counter.append(dict(actions_counter))
         self.number_of_steps.append(steps)
         return sum_rewards, steps, actions_counter
 
@@ -349,6 +351,7 @@ class Agent:
                     "total_number_of_steps": sum(self.number_of_steps),
                     "all_actor_loss": self.all_actor_loss,
                     "all_critic_loss": self.all_critic_loss,
+                    "all_actions_counters": self.all_actions_counter,
                     "car_crashed": self.car_crashed,
                     "start_time": self.start_time,
                     "last_update": datetime.now(),
