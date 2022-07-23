@@ -65,6 +65,8 @@ class ICMModel(nn.Module):
                 nn.init.kaiming_uniform_(p.weight, a=1.0)
                 p.bias.data.zero_()
 
+        self.to(self.device)
+
     def forward(self, states, next_states, actions):
         torch_state = torch.FloatTensor(states).to(device=self.device)
         torch_next_state = torch.FloatTensor(next_states).to(device=self.device)

@@ -37,9 +37,9 @@ class IcmAgent():
         pass
 
     def compute_intrinsic_reward(self, state, next_state, action):
-        tensor_state = torch.FloatTensor(state).to(self.device)
-        tensor_next_state = torch.FloatTensor(next_state).to(self.device)
-        tensor_action = torch.FloatTensor(action).to(self.device)
+        tensor_state = torch.FloatTensor(state)
+        tensor_next_state = torch.FloatTensor(next_state)
+        tensor_action = torch.FloatTensor(action)
 
         real_next_state_feature, pred_next_state_feature, pred_action = self.reward_model.forward(tensor_state, tensor_next_state, tensor_action)
         intrinsic_reward = self.eta * F.mse_loss(real_next_state_feature, pred_next_state_feature, reduction='none').mean(-1)
