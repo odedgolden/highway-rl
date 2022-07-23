@@ -14,7 +14,7 @@ torch.manual_seed(100)
 
 
 class ActorNet(nn.Module):
-    def __init__(self, name="actor"):
+    def __init__(self, output_size, name="actor"):
         super(ActorNet, self).__init__()
         self.shared_layers = nn.Sequential(
             nn.Conv2d(4, 32, (5, 5)),
@@ -24,7 +24,7 @@ class ActorNet(nn.Module):
             nn.ReLU(),
             nn.Linear(128, 128),
             nn.ReLU(),
-            nn.Linear(128, 5),
+            nn.Linear(128, output_size),
         )
 
         # self.shared_layers.apply(init_weights)

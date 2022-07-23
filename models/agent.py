@@ -13,6 +13,7 @@ import uuid
 import sys
 
 # Local
+from models.icm_model.train_icm import IcmAgent
 from models.replay_buffer import ReplayBuffer, Transition
 from models.actor_critic_models import ActorNet, CriticNet
 
@@ -67,6 +68,7 @@ class Agent:
         experiment_description="",
         replay_buffer_sampling_percent=0.7,
         min_buffer_size_for_learn=300,
+        use_icm=False,
         config_name='config1',
         config_3_env_type=None
     ):
@@ -83,6 +85,7 @@ class Agent:
         self.min_buffer_size_for_learn = min_buffer_size_for_learn
         self.start_time = datetime.now()
         self.config_3_env_type = config_3_env_type
+        self.use_icm = use_icm
         self.env_type = self.config_3_env_type if config_name=='config3' else 'highway-fast-v0'
 
         if config_name != 'config1':
@@ -101,7 +104,9 @@ class Agent:
 
  
         # Init Agent
-        self.actor_net = ActorNet()
+        self._init_env()
+        action_space_size = self.env.action_space.n
+        self.actor_net = ActorNet(output_size=action_space_size)
         self.critic_net = CriticNet()
         self.target_actor_net = copy.deepcopy(self.actor_net)
         self.target_critic_net = copy.deepcopy(self.critic_net)
@@ -110,9 +115,9 @@ class Agent:
             sampling_percent=replay_buffer_sampling_percent,
             min_buffer_size_for_learn=min_buffer_size_for_learn,
         )
-        self._init_env()
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
+        self._init_icm_if_enabled(action_space_size)
 
     def _init_env(self):
         self.env = gym.make(self.env_type)
@@ -205,8 +210,12 @@ class Agent:
 
         buffer_curr_states = np.array(current_buffer.curr_states)
         buffer_next_states = np.array(current_buffer.next_states)
+        buffer_actions = np.array(current_buffer.actions)
         buffer_rewards = current_buffer.rewards
         buffer_dones = current_buffer.dones
+
+        self._train_icm_if_enabled(buffer_curr_states, buffer_next_states, buffer_actions)
+
         with torch.no_grad():
             buffer_actor_probs = self.target_actor_net.forward(buffer_curr_states)
             buffer_log_probs = buffer_actor_probs.log_prob(buffer_actor_probs.sample())
@@ -218,13 +227,14 @@ class Agent:
             torch.FloatTensor(buffer_curr_states)
         )
 
-        critic_loss = F.mse_loss(
-            buffer_critic_value, buffer_target_value
-        )  # todo: note - i beleive it's mse_loss(buffer_critic_value, buffer_target_value)
+        critic_loss = F.mse_loss(buffer_critic_value, buffer_target_value)
         critic_loss.backward(retain_graph=True)
 
+        intrinsic_reward = self.compute_intrinsic_reward_if_icm_enabled(buffer_actions, buffer_curr_states,
+                                                                        buffer_next_states)
+
         actor_loss = -(
-            buffer_log_probs * (buffer_target_value - buffer_critic_value)
+            buffer_log_probs * (buffer_target_value - buffer_critic_value) + intrinsic_reward
         ).mean()
         actor_loss.backward()
         self.actor_net.optimizer.step()
@@ -236,6 +246,11 @@ class Agent:
         # print(
         #     f"done train episode #{episode_num}, actor-loss {actor_loss} and critic_loss {critic_loss}"
         # )
+
+    def compute_intrinsic_reward_if_icm_enabled(self, buffer_actions, buffer_curr_states, buffer_next_states):
+        if self.use_icm:
+            return self.icm.compute_intrinsic_reward(buffer_curr_states, buffer_next_states, buffer_actions)
+        return 0
 
     def play(self, render_screen=False):
         self.best_average_score = self.env.reward_range[0]
@@ -325,6 +340,7 @@ class Agent:
                     "buffer_max_size": self.buffer_max_size,
                     "training_episodes": len(self.all_rewards_sum),
                     "rewards_sums_array": self.all_rewards_sum,
+                    "intrinsic_curiosity_enabled": self.use_icm,
                     "replay_buffer_sampling_percent": self.replay_buffer_sampling_percent,
                     "total_rewards_sum": sum(self.all_rewards_sum),
                     "learning_durations_seconds": self.all_learning_durations,
@@ -355,3 +371,13 @@ class Agent:
         path = f'./weights/actor_{self.unq_id}.model'
         torch.save(self.actor_net.state_dict(), path)
         print(f'{datetime.now()} model save to {path}')
+
+    def _train_icm(self, states, next_states, actions):
+        self.icm.train_model(states, next_states, actions)
+
+    def _init_icm_if_enabled(self, spcae_size):
+        self.icm = IcmAgent(output_size=spcae_size) if self.use_icm else None
+
+    def _train_icm_if_enabled(self, buffer_curr_states, buffer_next_states, buffer_actions):
+        if self.use_icm:
+            self._train_icm(buffer_curr_states, buffer_next_states, buffer_actions)
