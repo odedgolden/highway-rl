@@ -3,13 +3,13 @@ import torch.nn as nn
 
 
 class ICMModel(nn.Module):
-    def __init__(self, input_size, output_size, use_cuda=True):
+    def __init__(self, input_size, output_size):
         super(ICMModel, self).__init__()
 
         self.input_size = input_size
         self.output_size = output_size
         action_size = 1
-        self.device = torch.device('cuda' if use_cuda else 'cpu')
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
         feature_output = 12 * 12 * 64
         self.feature = nn.Sequential(

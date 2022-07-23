@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 class IcmAgent():
     def __init__(self, output_size):
-        self.reward_model = ICMModel(input_size=(4,128, 128), output_size=output_size, use_cuda=False)
+        self.reward_model = ICMModel(input_size=(4,128, 128), output_size=output_size)
         self.optimizer = optim.Adam(self.reward_model.parameters(), lr=0.0001)
         self.reverse_scale = 10 # todo
         self.output_size = output_size
@@ -23,7 +23,7 @@ class IcmAgent():
         )
 
         # predicted_actions= np.argmax(pred_action_logit.detach(), axis=1)
-        ground_truth_class_indices = torch.LongTensor(actions)
+        ground_truth_class_indices = torch.LongTensor(actions).to(self.device)
         inverse_loss = F.cross_entropy(pred_action_logit, ground_truth_class_indices)
         forward_loss = F.mse_loss(pred_next_state_feature, real_next_state_feature)
         loss =  self.reverse_scale * inverse_loss + forward_loss
