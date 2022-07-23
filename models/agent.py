@@ -97,6 +97,7 @@ class Agent:
         # Init Logging
         self.all_rewards_sum = []
         self.all_learning_durations = []
+        self.all_icm_loss = []
         self.number_of_steps = []
         self.car_crashed = []
         self.all_actor_loss = []
@@ -352,6 +353,7 @@ class Agent:
                     "all_actor_loss": self.all_actor_loss,
                     "all_critic_loss": self.all_critic_loss,
                     "all_actions_counters": self.all_actions_counter,
+                    "all_icm_loss": self.all_icm_loss,
                     "car_crashed": self.car_crashed,
                     "start_time": self.start_time,
                     "last_update": datetime.now(),
@@ -375,12 +377,11 @@ class Agent:
         torch.save(self.actor_net.state_dict(), path)
         print(f'{datetime.now()} model save to {path}')
 
-    def _train_icm(self, states, next_states, actions):
-        self.icm.train_model(states, next_states, actions)
 
     def _init_icm_if_enabled(self, spcae_size):
         self.icm = IcmAgent(output_size=spcae_size) if self.use_icm else None
 
-    def _train_icm_if_enabled(self, buffer_curr_states, buffer_next_states, buffer_actions):
+    def _train_icm_if_enabled(self, states, next_states, actions):
         if self.use_icm:
-            self._train_icm(buffer_curr_states, buffer_next_states, buffer_actions)
+            loss = self.icm.train_model(states, next_states, actions)
+            self.all_icm_loss.append(loss)

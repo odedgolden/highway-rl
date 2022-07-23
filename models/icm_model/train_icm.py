@@ -31,6 +31,7 @@ class IcmAgent():
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+        return loss
 
     def predict(self):
         pass
